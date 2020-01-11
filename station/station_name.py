@@ -13,7 +13,7 @@ def main():
     stations = Stations(citys)
 
     # 站点信息表格打印
-    # mp(str(stations))
+    mp(str(stations))
 
     # 测试信息搜索
     rst = [

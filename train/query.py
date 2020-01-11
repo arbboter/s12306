@@ -4,6 +4,36 @@ import requests
 import datetime
 
 
+def main():
+    """
+    测试代码
+    :return:
+    """
+    import prettytable
+
+    # 获取票信息
+    train_date = (datetime.datetime.now()+datetime.timedelta(days=1)).strftime("%Y-%m-%d")
+    para = LeftTicketDTO(from_station='GZQ', to_station='SZQ', train_date=train_date)
+    trains = get_trains(para)
+    if not trains:
+        print('未找到符合条件的车次信息')
+        return
+
+    # 获取车站信息
+    from station import station_name
+    stations = station_name.stations()
+
+    # 组装信息
+    tab = prettytable.PrettyTable()
+    # 标题头
+    tab.field_names = trains[0].key_info().keys()
+    # 组装车次信息
+    for t in trains:
+        tab.add_row(t.key_info(stations).values())
+    # 表格显示车次信息
+    mp(tab)
+
+
 class Train:
     """
     车次信息
@@ -72,19 +102,29 @@ class Train:
         self.seat_types = item[35]
         self.exchange_train_flag = item[36]
 
-    @property
-    def key_info(self):
+    def key_info(self, stations=None):
         """
         获取车次的关键信息
         :return:
         """
+        # 起始站点信息转换
+        start_station = self.start_station_code
+        end_station = self.end_station_code
+        from_station = self.from_station_code
+        to_station = self.to_station_code
+        if stations:
+            sc = stations.code
+            start_station = sc.get(start_station)[0].name if start_station in sc else start_station
+            end_station = sc.get(end_station)[0].name if end_station in sc else end_station
+            from_station = sc.get(from_station)[0].name if from_station in sc else from_station
+            to_station = sc.get(to_station)[0].name if to_station in sc else to_station
         return {
             '状态': self.status,
             '车次': self.station_train_code,
-            '起始站代号': self.start_station_code,
-            '终点站代号': self.end_station_code,
-            '出发站代号': self.from_station_code,
-            '到达站代号': self.to_station_code,
+            '起始站': start_station,
+            '终点站': end_station,
+            '出发站': from_station,
+            '到达站': to_station,
             '出发时间': self.start_time,
             '到达时间': self.arrive_time,
             '运行时长': self.run_time,
@@ -137,53 +177,39 @@ def get_trains(dto):
     }
     try:
         trains = []
-        print('正在查询余票信息:', url)
+        mp('正在查询余票信息:{0}'.format(url))
         # 访问请求链接
         rsp = requests.get(url, headers=hds)
         text = json.loads(rsp.content.decode())
 
         # 检查返回码
         if text['httpstatus'] != 200:
-            print('获取余票信息异常,', text)
+            mp('获取余票信息异常,{0}'.format(text))
             return
 
         # 获取想要的数据
         result = text['data']['result']
-        print('共获取到{0}趟车次信息：'.format(len(result)))
+        mp('共获取到{0}趟车次信息：'.format(len(result)))
         for v in result:
             item = [f for f in v.split('|')]
             t = Train(item)
             trains.append(t)
     except Exception as e:
-        print('获取数据异常, {0} -> {1}'.format(Exception, e))
+        mp('获取数据异常, {0} -> {1}'.format(Exception, e))
     return trains
 
 
-def test():
+# 调试打印
+def mp(v):
     """
-    测试代码
+    打印调试信息的，模块被调用时不打印信息
+    :param v:
     :return:
     """
-    import prettytable
-
-    # 获取票信息
-    train_date = (datetime.datetime.now()+datetime.timedelta(days=1)).strftime("%Y-%m-%d")
-    para = LeftTicketDTO(from_station='GZQ', to_station='SZQ', train_date=train_date)
-    trains = get_trains(para)
-    if not trains:
-        print('未找到符合条件的车次信息')
+    if __name__ != '__main__':
         return
-
-    # 组装信息
-    tab = prettytable.PrettyTable()
-    # 标题头
-    tab.field_names = trains[0].key_info.keys()
-    # 组装车次信息
-    for t in trains:
-        tab.add_row(t.key_info.values())
-    # 表格显示车次信息
-    print(tab)
+    print(v)
 
 
 if __name__ == '__main__':
-    test()
+    main()
