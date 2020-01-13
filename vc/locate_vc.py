@@ -4,9 +4,8 @@ import os
 import cv2
 import numpy as np
 from keras import models
-
-import pretreatment
-from mlearn_for_image import preprocess_input
+from vc import pretreatment
+from vc.mlearn_for_image import preprocess_input
 
 
 # 全局变量
@@ -14,6 +13,11 @@ g_text_model = None
 g_image_model = None
 g_option_texts = []
 g_init = False
+# 需使用绝对路径，否则其他模块调用会失败，找不到路径
+g_cur_file_dir = os.path.dirname(os.path.abspath(__file__))
+g_model_h5_path = os.path.join(g_cur_file_dir, 'model.h5')
+g_image_model_h5_path = os.path.join(g_cur_file_dir, '12306.image.model.h5')
+g_label_text_path = os.path.join(g_cur_file_dir, 'texts.txt')
 
 
 def main():
@@ -34,6 +38,7 @@ def main():
     # 验证码识别结果
     for file in vc_path.rglob("*.jpg"):
         abs_file = os.path.abspath(file)
+        mp('正在处理文件:' + abs_file)
         mp('[{0}]识别结果位置:{1} \n{2}'.format(file, locate_vc(abs_file), '-'*64))
 
 
@@ -68,9 +73,10 @@ def init():
         # 调低日志级别，屏蔽tensorflow警告(强迫症)
         os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
         # 额外参数compile=False屏蔽警告
-        g_text_model = models.load_model('model.h5', compile=False)
-        g_image_model = models.load_model('12306.image.model.h5', compile=False)
-        with open('texts.txt', encoding='utf-8') as fd:
+        # 资源路径的目录为当前模块，取模块路径
+        g_text_model = models.load_model(g_model_h5_path, compile=False)
+        g_image_model = models.load_model(g_image_model_h5_path, compile=False)
+        with open(g_label_text_path, encoding='utf-8') as fd:
             g_option_texts = [text.rstrip('\n') for text in fd]
         g_init = True
     except Exception as e:
@@ -182,4 +188,5 @@ def mp(v):
 
 
 if __name__ == '__main__':
-    main()
+    # main()
+    pass

@@ -25,8 +25,10 @@ def download_image():
     r = requests.get(url)
     fn = hashlib.md5(r.content).hexdigest()
     img_str = json.loads(r.content)['image']
-    with open(f'{PATH}/{fn}.jpg', 'wb') as fp:
+    file_path = f'{PATH}/{fn}.jpg'
+    with open(file_path, 'wb') as fp:
         fp.write(base64.b64decode(img_str))
+    return file_path
 
 
 def download_images():

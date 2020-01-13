@@ -12,6 +12,7 @@ def main():
     # 数据结构测试
     stations = Stations(citys)
 
+
     # 站点信息表格打印
     mp(str(stations))
 
@@ -21,9 +22,12 @@ def main():
         stations.name['广州南'],
         stations.code['IZQ'],
         stations.py_full['chongqingnan'],
-        stations.py_first['gzd']]
+        stations.py_first['gzd'],
+    ]
     for r in rst:
         print('\t'.join([str(v) for v in r]))
+
+    print(stations.by_code('SZQ'))
 
 
 def stations():
@@ -67,11 +71,11 @@ class Stations:
     """
     header = "拼音缩写|站名称|站代码|全拼|站首字母|站顺序号".split('|')
 
-    def __init__(self, stations=[]):
+    def __init__(self, station_items=[]):
         # 初始化数据
-        self._ori_data = stations[:]
+        self._ori_data = station_items[:]
         self._data = []
-        for s in stations:
+        for s in self._ori_data:
             self._data.append(StationInfo(s))
 
         # 建立索引支持数据查询
@@ -94,6 +98,15 @@ class Stations:
             self._index_apd(self.code, s.code, s)
             self._index_apd(self.py_full, s.py_full, s)
             self._index_apd(self.py_first, s.py_first, s)
+
+    def by_code(self, c):
+        """
+        根据站代码获取站点信息
+        :param c:
+        :return:
+        """
+        r = self.code.get(c)
+        return r[0] if r else None
 
     @staticmethod
     def _index_apd(d, k, v):
