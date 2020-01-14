@@ -13,6 +13,14 @@ import string
 def main():
     from config import username, password
     login = Login(usr=username, passwd=password)
+
+    # 检查登录状态
+    status = login.get_login_conf()
+    if Login.check_login(status):
+        print('已经登录')
+        return
+    else:
+        print('未登录')
     num = 1
     while num > 0:
         if login.login():
@@ -35,12 +43,27 @@ class Login:
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
                           'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/65.0.3325.146 Safari/537.36',
             'Referer': 'https://kyfw.12306.cn/otn/login/init',
-            'Accept': 'application/json, text/javascript, */*; q=0.01'
+            'Host': 'kyfw.12306.cn'
         }
         # 12306验证码的8个子图坐标（每个坐标为区间，非唯一）
         self.vc_coordinate = "24,37,128,38,177,44,259,46,36,113,116,119,196,119,256,120".strip().split(',')
 
         # 地址
+        # OTN初始化地址
+        self.url_otn = 'https://kyfw.12306.cn/otn/'
+
+        # 设备初始化
+        self.url_logdevice = 'https://kyfw.12306.cn/otn/HttpZF/logdevice'
+
+        # 登录初始化
+        self.url_login_init = 'https://kyfw.12306.cn/otn/login/init'
+
+        # 查看登录是否需要验证码的
+        self.url_login_conf = 'https://kyfw.12306.cn/otn/login/conf'
+
+        # 校验是否登录成功
+        self.url_uamtk_static = 'https://kyfw.12306.cn/passport/web/auth/uamtk-static?appid=otn'
+
         # 验证码地址
         self.url_image = 'https://kyfw.12306.cn/passport/captcha/captcha-image?login_site=E&module=login&rand=sjrand'
         # 验证码校验地址
@@ -59,8 +82,14 @@ class Login:
                 'answer': ''
             }
 
-        # 设置cookies
-        self.update_cookies()
+        # 获取设备信息
+        device_info = self._get_device_info()
+        self._set_device_cookies(device_info)
+
+        # 初始化cookies
+        self._init_cookies()
+
+        print('cookies:', self.session.cookies)
 
     def login(self):
         """
@@ -68,6 +97,10 @@ class Login:
         :return:
         """
         try:
+            # 登录初始化
+            self.session.get(self.url_login_init, headers=self.headers)
+            print('登录cook:', self.session.cookies)
+
             resp = self.session.get(self.url_image, headers=self.headers)
             vc_path = datetime.datetime.now().strftime("%Y%m%d%H%M%S") + '.jpg'
             with open(vc_path, 'wb') as f:
@@ -144,16 +177,99 @@ class Login:
             r.append(''.join(random.sample(ops, n)))
         return '-'.join(r)
 
-    def update_cookies(self):
+    def get_login_conf(self):
+        """
+        获取登录配置，是否需要验证码，结果可判断是否登录
+        :return:
+        """
+        try:
+            resp = self.session.get(self.url_login_conf)
+            text = resp.content.decode()
+            jrsp = loads(text)
+            return jrsp
+        except Exception as e:
+            print('获取登录配置信息失败 {0}->{1}'.format(Exception, e))
+            return {}
+
+    @staticmethod
+    def check_login(conf):
+        """
+        检查是否已经登录
+        :param conf: 登录信息
+        :return:
+        """
+        key = 'is_login'
+        return key in conf and conf[key] == 'Y'
+
+    def is_login(self):
+        """
+        检查是否已经登录，登录成功后可调用该接口测试
+        :return:
+        """
+        try:
+            resp = self.session.get(self.url_uamtk_static)
+            text = resp.content.decode()
+            jrsp = loads(text)
+            return jrsp
+        except Exception as e:
+            print('获取登录信息失败 {0}->{1}'.format(Exception, e))
+            return {}
+
+    def _get_device_info(self):
+        """
+        获取设备信息，即RAIL_EXPIRATION和RAIL_DEVICEID
+        :return:
+        """
+        try:
+            resp = self.session.get(self.url_logdevice)
+            text = resp.content.decode()
+            jtext = text[text.find('{'):-2]
+            jrsp = loads(jtext)
+            return {
+                'RAIL_EXPIRATION': jrsp['exp'],
+                'RAIL_DEVICEID': jrsp['dfp']
+            }
+        except Exception as e:
+            print('获取设备信息失败 {0}->{1}'.format(Exception, e))
+            return {}
+
+    def _init_cookies(self):
         """
         2020年1月13日：更新cookie,必须有RAIL_EXPIRATION和RAIL_DEVICEID
         """
-        rail_expiration = self.make_rail_expiration()
-        rail_deviceid = self.make_rail_deviceid()
-        self.sesson.cookies.update({
-            'RAIL_EXPIRATION': rail_expiration,
-            'RAIL_DEVICEID': rail_deviceid,
-        })
+        # 页面otn初始化
+        self._otn_set_cookies()
+
+        # BIGipServerpool_passport=250413578.50215.0000
+        self.session.cookies.update({'BIGipServerpool_passport': '250413578.50215.0000'})
+
+    def _set_device_cookies(self, device_info={}):
+        """
+        在cookies中写入设备信息
+        :param device_info:设备信息字典
+        :return:
+        """
+        # 设置
+        self.session.cookies.update(device_info)
+
+    def _otn_set_cookies(self):
+        """
+        2020年1月14日：获取设置COOKIES值，包括BIGipServerotn，route，JSESSIONID
+        :return:
+        """
+        self.session.get(self.url_otn, headers=self.headers)
+
+    def _get_uamtk_static(self):
+        try:
+            resp = self.session.get(self.url_uamtk_static)
+            text = resp.content.decode()
+            print(text)
+            return {
+
+            }
+        except Exception as e:
+            print('获取UAMTK-STATIC信息失败 {0}->{1}'.format(Exception, e))
+            return {}
 
 
 # 调试打印

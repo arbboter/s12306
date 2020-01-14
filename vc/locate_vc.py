@@ -3,9 +3,8 @@
 import os
 import cv2
 import numpy as np
-from keras import models
-from vc import pretreatment
-from vc.mlearn_for_image import preprocess_input
+import pretreatment
+from pretreatment import preprocess_input
 
 
 # 全局变量
@@ -70,9 +69,9 @@ def init():
     if g_init:
         return True
     try:
+        from keras import models
         # 调低日志级别，屏蔽tensorflow警告(强迫症)
-        os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
-        # 额外参数compile=False屏蔽警告
+        os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
         # 资源路径的目录为当前模块，取模块路径
         g_text_model = models.load_model(g_model_h5_path, compile=False)
         g_image_model = models.load_model(g_image_model_h5_path, compile=False)
@@ -188,5 +187,4 @@ def mp(v):
 
 
 if __name__ == '__main__':
-    # main()
-    pass
+    main()

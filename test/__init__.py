@@ -3,7 +3,10 @@
 
 
 def main():
-    pass
+    import requests
+    s = requests.Session()
+    s.get('https://kyfw.12306.cn/otn/')
+    print(s.cookies)
 
 
 if __name__ == '__main__':

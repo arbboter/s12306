@@ -10,24 +10,23 @@ def main():
     citys = get_citys(url_station_name)
 
     # 数据结构测试
-    stations = Stations(citys)
-
+    result = Stations(citys)
 
     # 站点信息表格打印
-    mp(str(stations))
+    mp(str(result))
 
     # 测试信息搜索
     rst = [
-        stations.py_simple['bjx'],
-        stations.name['广州南'],
-        stations.code['IZQ'],
-        stations.py_full['chongqingnan'],
-        stations.py_first['gzd'],
+        result.py_simple['bjx'],
+        result.name['广州南'],
+        result.code['IZQ'],
+        result.py_full['chongqingnan'],
+        result.py_first['gzd'],
     ]
     for r in rst:
         print('\t'.join([str(v) for v in r]))
 
-    print(stations.by_code('SZQ'))
+    print(result.by_code('SZQ'))
 
 
 def stations():
