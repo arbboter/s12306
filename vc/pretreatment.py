@@ -14,7 +14,7 @@ import scipy.fftpack
 import json
 import base64
 
-PATH = 'imgs'
+PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'imgs')
 
 
 def preprocess_input(x):

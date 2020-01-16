@@ -12,23 +12,32 @@ import string
 
 def main():
     from config import username, password
-    login = Login(usr=username, passwd=password)
+    au = Login(usr=username, passwd=password)
 
-    # 检查登录状态
-    status = login.get_login_conf()
-    if Login.check_login(status):
-        print('已经登录')
-        return
-    else:
-        print('未登录')
     num = 1
     while num > 0:
-        if login.login():
-            print('登录成功')
+        num -= 1
+        # 验证码校验
+        ans = au.captcha_check()
+        if not ans:
+            continue
+
+        # 登录初始必须设置RAIL_EXPIRATION和RAIL_DEVICEID
+        # 目前找了很多方法没找到合适的自动化获取这两个值
+        # 从12306登录页面查看cookies拷贝出来的，后续再优化
+        au.session.cookies.update({
+            'RAIL_EXPIRATION': '1579286565121',
+            'RAIL_DEVICEID': 'MyIRUVI9OrMAHyMoeFjI-MzobaN0KUvRKV9bwkaLBiNtWpnoIEnN9pC6UGrv8uCur1isl'
+                             '_IN_SED4CEwxuDwEfxM-3t20f3Ki67wSDrgiVv0Sp9VUE95HhIjCiLsqAtqI4NzYDWoGQP'
+                             '_Y74XPMTILoKonpFh6_p9'
+        })
+
+        # 登录
+        if au.login(ans):
+            mp('登录成功, 登录验证：{}'.format(au.is_login()))
             break
         else:
             print('登录失败')
-        num -= 1
 
 
 class Login:
@@ -40,10 +49,10 @@ class Login:
         self.passwd = passwd
         self.session = requests.Session()
         self.headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
-                          'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/65.0.3325.146 Safari/537.36',
-            'Referer': 'https://kyfw.12306.cn/otn/login/init',
-            'Host': 'kyfw.12306.cn'
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
+                              "Chrome/58.0.3029.110 Safari/537.36 Edge/16.16299",
+                "Host": "kyfw.12306.cn",
+                "Referer": "https://kyfw.12306.cn/otn/resources/login.html"
         }
         # 12306验证码的8个子图坐标（每个坐标为区间，非唯一）
         self.vc_coordinate = "24,37,128,38,177,44,259,46,36,113,116,119,196,119,256,120".strip().split(',')
@@ -66,6 +75,7 @@ class Login:
 
         # 验证码地址
         self.url_image = 'https://kyfw.12306.cn/passport/captcha/captcha-image?login_site=E&module=login&rand=sjrand'
+
         # 验证码校验地址
         self.url_image_check = 'https://kyfw.12306.cn/passport/captcha/captcha-check'
         self.url_image_check_data = {
@@ -82,37 +92,31 @@ class Login:
                 'answer': ''
             }
 
-        # 获取设备信息
-        device_info = self._get_device_info()
-        self._set_device_cookies(device_info)
-
         # 初始化cookies
         self._init_cookies()
 
-        print('cookies:', self.session.cookies)
-
-    def login(self):
+    def captcha_check(self):
         """
-        登录
+        验证码校验
         :return:
         """
         try:
-            # 登录初始化
-            self.session.get(self.url_login_init, headers=self.headers)
-            print('登录cook:', self.session.cookies)
-
+            # 下载验证码
             resp = self.session.get(self.url_image, headers=self.headers)
             vc_path = datetime.datetime.now().strftime("%Y%m%d%H%M%S") + '.jpg'
             with open(vc_path, 'wb') as f:
                 f.write(resp.content)
-            # 获取验证码坐标
+            if not os.path.isfile(vc_path):
+                mp('获取验证码失败')
+
+            # 识别验证码坐标
             vc_pos = locate_vc.locate_vc(vc_path)
             if not vc_pos:
-                mp('验证码识别失败')
+                mp('验证码识别失败：{}'.format(vc_path))
                 return False
             vc_locate = []
             for i in vc_pos:
-                vc_locate.extend(self.vc_coordinate[i*2:i*2+2])
+                vc_locate.extend(self.vc_coordinate[i * 2:i * 2 + 2])
             answer = ','.join(vc_locate)
             mp('验证码识别结果：{0} -> {1}'.format(vc_pos, answer))
 
@@ -123,9 +127,26 @@ class Login:
 
             # 判断验证码验证结果
             if content['result_code'] != '4':
-                mp('验证码校验不通过:{0} <- {1}'.format(content, self.url_image_check_data))
+                mp('验证码{2}校验不通过:{0} <- {1}'.format(content, self.url_image_check_data, vc_path))
                 return False
+
             mp('验证码校验成功')
+            # 删除临时验证码
+            os.remove(vc_path)
+
+            return answer
+        except Exception as e:
+            mp('验证码校验异常, {0}->{1}'.format(Exception, e))
+        return ''
+
+    def login(self, answer):
+        """
+        登录
+        :return:
+        """
+        try:
+            # 登录初始化
+            self.session.get(self.url_login_init, headers=self.headers)
 
             # 请求登录
             headers = self.headers.copy()
@@ -135,10 +156,7 @@ class Login:
                 'Referer': 'https://kyfw.12306.cn/otn/resources/login.html'
             })
             self.url_login_data['answer'] = answer
-            print('登录参数', self.url_login_data)
             resp = self.session.post(self.url_login, data=self.url_login_data, headers=headers)
-            print('登录页结果:', resp.text)
-
             if resp.status_code != 200:
                 raise '登录页返回状态码非正常:{0}'.format(resp.status_code)
             content = loads(resp.content)
@@ -149,8 +167,6 @@ class Login:
             mp('登录页内容解析异常 {0} -> {1} \n {2}'.format(Exception, e, resp.status_code))
         finally:
             pass
-            # 删除临时验证码
-            os.remove(vc_path)
         return False
 
     @staticmethod
@@ -183,7 +199,7 @@ class Login:
         :return:
         """
         try:
-            resp = self.session.get(self.url_login_conf)
+            resp = self.session.get(self.url_login_conf, headers=self.headers)
             text = resp.content.decode()
             jrsp = loads(text)
             return jrsp
@@ -207,10 +223,10 @@ class Login:
         :return:
         """
         try:
-            resp = self.session.get(self.url_uamtk_static)
+            resp = self.session.get(self.url_uamtk_static, headers=self.headers)
             text = resp.content.decode()
             jrsp = loads(text)
-            return jrsp
+            return jrsp['result_code'] == 0
         except Exception as e:
             print('获取登录信息失败 {0}->{1}'.format(Exception, e))
             return {}
@@ -221,7 +237,7 @@ class Login:
         :return:
         """
         try:
-            resp = self.session.get(self.url_logdevice)
+            resp = self.session.get(self.url_logdevice, headers=Headers.BaseHead)
             text = resp.content.decode()
             jtext = text[text.find('{'):-2]
             jrsp = loads(jtext)
@@ -237,11 +253,21 @@ class Login:
         """
         2020年1月13日：更新cookie,必须有RAIL_EXPIRATION和RAIL_DEVICEID
         """
+        # 设备信息，目前获取的值不可用
+        # device_id = self._get_device_info()
+        # self.session.cookies.update(device_id)
+
+        # conf
+        self.get_login_conf()
+
+        # 检查是否已经登录
+        self.is_login()
+
         # 页面otn初始化
         self._otn_set_cookies()
 
         # BIGipServerpool_passport=250413578.50215.0000
-        self.session.cookies.update({'BIGipServerpool_passport': '250413578.50215.0000'})
+        # self.session.cookies.update({'BIGipServerpool_passport': '250413578.50215.0000'})
 
     def _set_device_cookies(self, device_info={}):
         """
