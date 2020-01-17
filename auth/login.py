@@ -14,30 +14,21 @@ def main():
     from config import username, password
     au = Login(usr=username, passwd=password)
 
+    # 登录初始必须设置RAIL_EXPIRATION和RAIL_DEVICEID
+    # 目前找了很多方法没找到合适的自动化获取这两个值
+    # 从12306登录页面查看cookies拷贝出来的，后续再优化
+    rail_cookies = {
+        'RAIL_EXPIRATION': '1579286565121',
+        'RAIL_DEVICEID': 'MyIRUVI9OrMAHyMoeFjI-MzobaN0KUvRKV9bwkaLBiNtWpnoIEnN9pC6UGrv8uCur1isl'
+                         '_IN_SED4CEwxuDwEfxM-3t20f3Ki67wSDrgiVv0Sp9VUE95HhIjCiLsqAtqI4NzYDWoGQP'
+                         '_Y74XPMTILoKonpFh6_p9'
+    }
+
     num = 1
     while num > 0:
-        num -= 1
-        # 验证码校验
-        ans = au.captcha_check()
-        if not ans:
-            continue
-
-        # 登录初始必须设置RAIL_EXPIRATION和RAIL_DEVICEID
-        # 目前找了很多方法没找到合适的自动化获取这两个值
-        # 从12306登录页面查看cookies拷贝出来的，后续再优化
-        au.session.cookies.update({
-            'RAIL_EXPIRATION': '1579286565121',
-            'RAIL_DEVICEID': 'MyIRUVI9OrMAHyMoeFjI-MzobaN0KUvRKV9bwkaLBiNtWpnoIEnN9pC6UGrv8uCur1isl'
-                             '_IN_SED4CEwxuDwEfxM-3t20f3Ki67wSDrgiVv0Sp9VUE95HhIjCiLsqAtqI4NzYDWoGQP'
-                             '_Y74XPMTILoKonpFh6_p9'
-        })
-
         # 登录
-        if au.login(ans):
-            mp('登录成功, 登录验证：{}'.format(au.is_login()))
+        if au.auto_login(rail_cookies):
             break
-        else:
-            print('登录失败')
 
 
 class Login:
@@ -139,9 +130,31 @@ class Login:
             mp('验证码校验异常, {0}->{1}'.format(Exception, e))
         return ''
 
+    def auto_login(self, ext_cookies={}):
+        """
+        自动登录
+        :return:
+        """
+        # 验证码校验
+        ans = self.captcha_check()
+        if not ans:
+            return False
+
+        # 额外cookies
+        self.session.cookies.update(ext_cookies)
+
+        # 登录
+        if self.login(ans):
+            mp('登录成功, 登录验证：{}'.format(self.is_login()))
+            return True
+        else:
+            mp('登录失败')
+        return False
+
     def login(self, answer):
         """
         登录
+        :param answer: 验证码答案
         :return:
         """
         try:
