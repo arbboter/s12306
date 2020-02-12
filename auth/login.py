@@ -18,14 +18,13 @@ def main():
     # 目前找了很多方法没找到合适的自动化获取这两个值
     # 从12306登录页面查看cookies拷贝出来的，后续再优化
     rail_cookies = {
-        'RAIL_EXPIRATION': '1579286565121',
-        'RAIL_DEVICEID': 'MyIRUVI9OrMAHyMoeFjI-MzobaN0KUvRKV9bwkaLBiNtWpnoIEnN9pC6UGrv8uCur1isl'
-                         '_IN_SED4CEwxuDwEfxM-3t20f3Ki67wSDrgiVv0Sp9VUE95HhIjCiLsqAtqI4NzYDWoGQP'
-                         '_Y74XPMTILoKonpFh6_p9'
+        'RAIL_EXPIRATION': '1581743994036',
+        'RAIL_DEVICEID': 'MK79BAa-523TgpACI3uUbh5fohRMDUD-88EC4Fo9kz8XHzB3lcsBWvtKIJJKytzPjz5HVxSqVee6Yt1E_yZAGOCtuwX27Z7M64-ccE6AAUgxV_sJa0NDL-stO_87TIRnRQcBYwOFDynAzISyp1ZkXc6g74KiQ3Ft'
     }
 
     num = 1
     while num > 0:
+        num -= 1
         # 登录
         if au.auto_login(rail_cookies):
             break
@@ -243,6 +242,18 @@ class Login:
         except Exception as e:
             print('获取登录信息失败 {0}->{1}'.format(Exception, e))
             return {}
+
+    def loads_cookies(self, cookies_file):
+        """
+        从文件加载cookies数据
+        :param cookies_file:
+        :return:
+        """
+        with open(cookies_file, 'r') as fd:
+            cookies = fd.read()
+        from utils.data import parse_by_dict
+        data = parse_by_dict(cookies)
+        self.session.cookies.update(data)
 
     def _get_device_info(self):
         """
